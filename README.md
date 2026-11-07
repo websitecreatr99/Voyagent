@@ -1,44 +1,309 @@
-# Voyagent — Frontend
+# Build a Multi-Agent Travel Planning System using LangGraph + MCP | Supervisor Agent + Guardrails + Human-in-the-Loop
 
-Next.js (App Router) + Tailwind CSS UI for the multi-agent travel planner. It talks to the FastAPI server on the `backend` branch.
 
-## Features
+This project extends the Multi-Agent Travel Planning System built in Part 1 and Part 2 by integrating Supervisor Agent + Guardrails + Human-in-the-Loop
 
-- Animated aurora hero with one-click example prompts
-- Live agent pipeline: each agent's status streams in over Server-Sent Events
-- Supervisor plan with the parsed trip constraints and the agents it selected
-- Result cards for flights, hotels, weather and budget, with skeleton loaders
-- Human-in-the-loop review: approve the draft, or send feedback for a revision
-- Final plan with copy and Markdown download
-- Guardrail-blocked, error and API-offline states
-- **Bring your own API keys (optional):** the **API keys** button opens a dialog for Groq, AviationStack, Tavily and OpenWeather keys. Each key switches its part of the plan from dummy data to live results. Keys are sent only with your requests, never stored on the server, and kept in the browser only for the session unless you tick "Remember on this device".
-- **Dummy-data labelling:** a banner and per-card badges show which results are sample data and link to the keys dialog
-- **GitHub button** in the header and footer (`NEXT_PUBLIC_GITHUB_URL` overrides the link)
+## Part 1 of This Project
 
-## Run
+**GitHub Repository:**  
+https://github.com/codewithaarohi/AI-Travel-Planning-System-using-LangGraph
 
-Requires Node.js 18.17 or newer (Next.js 14).
+**Video Tutorial:**  
+Build a Real-World Multi-Agent AI System using LangGraph | Multi-Agent AI + Memory + APIs  
+https://youtu.be/ctHby5vhDqg
 
-```bash
-cd frontend
-cp .env.example .env.local   # set NEXT_PUBLIC_API_URL if the API isn't on http://localhost:8000
-npm install
-npm run dev                  # http://localhost:3000
-```
 
-Start the backend in another terminal (on the `backend` branch):
 
-```bash
-uvicorn server:api --reload --port 8000
-```
 
-## Structure
+## Part 2 of This Project
 
-```
-app/          layout, global styles, main page (state machine for plan → review → final)
-components/   AgentPipeline, PromptBox, ResultCard, ApprovalPanel, FinalPlan, Markdown, Background
-lib/api.ts    typed API client + SSE stream parser
-```
+**GitHub Repository:**  
+https://github.com/codewithaarohi/AI-Travel-Planning-App-using-LangGraph-and-MCP
+
+**Video Tutorial:**  
+Build a Real-World Multi-Agent AI System using LangGraph | Multi-Agent AI + Memory + MCP  
+https://youtu.be/DjMX7o2EeV0
+
+---
+
+# Requirements
+
+## APIs
+
+- Groq API: https://console.groq.com
+- Tavily API: https://www.tavily.com/
+- AviationStack API: https://aviationstack.com/
+- OpenWeatherMap API: https://openweathermap.org/
+
+## Tools
+
+- PostgreSQL: https://www.postgresql.org/download/
+- Tavily MCP Server: https://docs.tavily.com/documentation/mcp
+
+---
+
+# Step 1: Create Python Environment
+
+
+    python -m venv langgraph_env3
+
+
+Activate:
+
+
+    langgraph_env3\Scripts\activate
+
+
+---
+
+# Step 2: Install Dependencies
+
+
+    pip install langgraph langchain langchain-openai langchain-groq langchain-community langchain-tavily psycopg[binary] psycopg_pool python-dotenv tavily-python requests streamlit
+
+
+
+    pip install -U "psycopg[binary,pool]" langgraph-checkpoint-postgres
+
+
+---
+
+# Step 3: Install PostgreSQL
+
+Download PostgreSQL:
+
+https://www.postgresql.org/download/
+
+**Important:** Note your PostgreSQL password and port number during installation.
+
+---
+
+# Step 4: Create Database
+
+
+    CREATE DATABASE langgraph_memory_demo;
+
+
+---
+
+# Step 5: Setup .env File
+
+Create a `.env` file:
+
+    GROQ_API_KEY=your_groq_api_key
+
+    TAVILY_API_KEY=your_tavily_api_key
+
+    AVIATIONSTACK_API_KEY=your_aviationstack_api_key
+
+    DATABASE_URL=postgresql://postgres:postgres@localhost:5433/langgraph_memory_demo
+
+
+---
+
+# Step 6: Get API Keys
+
+- Groq: https://console.groq.com
+- Tavily: https://tavily.com
+- AviationStack: https://aviationstack.com
+- OpenWeatherMap: https://openweathermap.org/
+
+---
+
+# Setup AviationStack MCP Server (Local MCP Server)
+
+Repository:
+
+https://github.com/Pradumnasaraf/aviationstack-mcp
+
+Open PowerShell:
+
+    E:
+
+    cd E:\Multi_agent_system_with_MCP
+
+
+Clone repository:
+
+
+    git clone https://github.com/Pradumnasaraf/aviationstack-mcp.git
+
+    cd aviationstack-mcp
+
+
+## Install UV
+
+Check:
+
+    uv --version
+
+
+Install:
+
+    pip install uv
+
+
+If installation fails:
+
+    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+
+## Create .env File
+
+    AVIATION_STACK_API_KEY=your_api_key_here
+
+
+## Install Dependencies
+
+    uv sync
+
+
+This will:
+
+- Create `.venv`
+- Install dependencies
+- Install AviationStack MCP package
+
+## Activate Environment
+
+    .venv\Scripts\activate
+
+
+## Start MCP Server
+
+    uv run -m aviationstack_mcp mcp run
+
+
+or
+
+
+    python -m aviationstack_mcp mcp run
+
+
+The server will remain running and wait for MCP requests.
+
+## Stop Server
+
+    CTRL + C
+
+
+---
+
+# Setup Weather MCP Server
+
+Get API key:
+
+https://openweathermap.org/
+
+Add the API key to your `.env` file.
+
+Install dependencies:
+
+    pip install mcp requests
+
+
+---
+
+# Run the Application
+
+## Streamlit Web App
+Run:
+
+    streamlit run frontend.py
+
+
+---
+
+# Example Prompt
+
+    Plan a complete 7 days Japan trip including flights, hotels and sightseeing under 2 lakhs.
+
+
+---
+
+# Features
+
+- Multi-Agent Architecture using LangGraph
+- PostgreSQL Memory
+- Tavily Search Integration
+- AviationStack MCP Integration
+- Weather MCP Integration
+- Streamlit Web App
+- Real-Time Travel Planning
+- Human in the loop
+- Guardrails
+
+
+---
+
+# FastAPI Backend (for the Next.js frontend)
+
+`server.py` exposes the LangGraph planner over HTTP. The Next.js UI lives on the `frontend` branch.
+
+Install and run (Python 3.13+, required by `aviationstack-mcp`):
+
+    uv venv --python 3.13 .venv
+    .venv\Scripts\activate
+    uv pip install -r requirements.txt
+    uvicorn server:api --reload --port 8000
+
+The AviationStack and Weather MCP servers are started automatically over stdio using the
+same Python environment, so no separate `aviationstack-mcp` clone is needed. To run them from
+another environment, set `AVIATIONSTACK_MCP_PYTHON`, `WEATHER_MCP_PYTHON` or `WEATHER_MCP_SCRIPT`.
+
+Interactive docs: http://localhost:8000/docs
+
+Allowed browser origins are set with `FRONTEND_ORIGINS` (comma-separated, default `http://localhost:3000`).
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET  | `/api/health` | Health check |
+| GET  | `/api/agents` | Agent pipeline metadata |
+| POST | `/api/plan` | Run agents up to the human-approval step. Body: `{"query": "...", "user_id": "demo_user", "thread_id": null}` |
+| POST | `/api/plan/stream` | Same as above, streamed as Server-Sent Events (`start`, `node`, `interrupt`, `done`, `error`) |
+| GET  | `/api/plan/{thread_id}` | Current state of a thread |
+| POST | `/api/plan/{thread_id}/approve` | Resume after review. Body: `{"approved": true, "feedback": ""}` |
+| POST | `/api/plan/{thread_id}/approve/stream` | Same as above, streamed as SSE |
+
+`status` in responses is one of `awaiting_approval`, `completed`, or `blocked` (rejected by the input guardrail).
+
+Without `DATABASE_URL`, threads are kept in memory and are lost when the server restarts.
+
+## API keys, dummy data and mock mode
+
+Each service runs live only when it has a key; otherwise it returns **dummy data**:
+
+| Service | Key | Without a key |
+|---|---|---|
+| LLM (supervisor, budget, itinerary, final plan) | Groq | Canned text |
+| Flights | AviationStack | Canned airport/airline data |
+| Hotels | Tavily | Canned hotel areas |
+| Weather | OpenWeather | Canned forecast |
+
+Keys come from two places:
+
+1. **The request.** Users can paste their own keys in the UI (**API keys** button). They are sent
+   as `api_keys` in `POST /api/plan[/stream]` and `/approve[/stream]`, used only for that request,
+   and never written to graph state, checkpoints or logs. They are also scrubbed from error messages.
+2. **The server's environment** (`GROQ_API_KEY`, ...). These are used when the user supplies none,
+   unless `MOCK_MODE=true`. In that case the server ignores its own keys and only user-supplied keys go live.
+
+`GET /api/health` returns `modes`, which says what a request without user keys gets. Every plan
+response and the stream's `start` event also include `modes` (`live` or `mock` per service), so
+the UI can label dummy data.
+
+## Deploy to Render
+
+`render.yaml` describes the service (branch `backend`, Python 3.13, `MOCK_MODE=true`).
+After deploying, set in the Render dashboard:
+
+- `FRONTEND_ORIGINS` — your Vercel URL, e.g. `https://voyagent.vercel.app`
+- `GROQ_API_KEY`, `TAVILY_API_KEY`, `AVIATION_STACK_API_KEY`, `OPENWEATHER_API_KEY`
+- then `MOCK_MODE=false`
+
+Without `DATABASE_URL`, plans are kept in memory and are lost when the free instance sleeps or restarts.
 
 ---
 
@@ -249,7 +514,10 @@ In mock mode, every response ends with *"Mock mode: generated without calling an
 
 ## 9. Switch to real AI responses
 
-In **Render → Environment**:
+**Option A: per user, no server change.** Click **API keys** in the app header, paste your keys
+(any subset), and plan a trip. Services without a key keep returning dummy data, and the UI labels them.
+
+**Option B: server-wide keys,** used for everyone who doesn't bring their own. In **Render → Environment**:
 
 1. Add `GROQ_API_KEY`, `TAVILY_API_KEY`, `AVIATION_STACK_API_KEY` and `OPENWEATHER_API_KEY`.
 2. Set `MOCK_MODE=false`.
@@ -264,7 +532,7 @@ The AviationStack and Weather MCP servers run inside the backend service (instal
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
-| `MOCK_MODE` | no | `false` | `true` = canned responses, no keys needed |
+| `MOCK_MODE` | no | `false` | `true` = ignore the server's own keys; only keys users paste in the UI go live, everything else is dummy data |
 | `MOCK_DELAY` | no | `1.2` | Seconds each mocked call waits (makes the live progress visible) |
 | `GROQ_API_KEY` | real mode | — | LLM |
 | `GROQ_MODEL` | no | `llama-3.3-70b-versatile` | Groq model name |
@@ -281,7 +549,6 @@ The AviationStack and Weather MCP servers run inside the backend service (instal
 | Variable | Required | Purpose |
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | yes | Backend URL, e.g. `https://<your-service>.onrender.com`. Read at build time. |
-| `NEXT_PUBLIC_GITHUB_URL` | no | Target of the GitHub button. Defaults to this project's repository. |
 
 ## Troubleshooting
 
