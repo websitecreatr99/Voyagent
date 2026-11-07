@@ -1,0 +1,7 @@
+# Never upload local secrets or unrelated local files
+.env
+.env.*
+!.env.example
+.venv
+__pycache__
+*.py
