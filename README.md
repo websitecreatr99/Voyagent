@@ -11,8 +11,8 @@ Next.js (App Router) + Tailwind CSS UI for the multi-agent travel planner. It ta
 - Human-in-the-loop review: approve the draft, or send feedback for a revision
 - Final plan with copy and Markdown download
 - Guardrail-blocked, error and API-offline states
-- **Bring your own API keys (optional):** the **API keys** button opens a dialog for Groq, AviationStack, Tavily and OpenWeather keys. Each key switches its part of the plan from dummy data to live results. Keys are sent only with your requests, never stored on the server, and kept in the browser only for the session unless you tick "Remember on this device".
-- **Dummy-data labelling:** a banner and per-card badges show which results are sample data and link to the keys dialog
+- **Bring your own API keys (optional):** the **API keys** button opens a dialog for Groq, AviationStack, Tavily and OpenWeather keys. It's all-or-nothing: with all 4 keys the plan runs live; with fewer, the whole plan uses dummy data and the UI lists the missing keys. Keys are sent only with your requests, never stored on the server, and kept in the browser only for the session unless you tick "Remember on this device".
+- **Dummy-data labelling:** a banner (with "x of 4 keys added" and the missing keys) and per-card badges show when results are sample data, and link to the keys dialog
 - **GitHub button** in the header and footer (`NEXT_PUBLIC_GITHUB_URL` overrides the link)
 
 ## Run

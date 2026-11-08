@@ -51,8 +51,14 @@ export default function ApiKeysDialog({
               Your API keys <span className="text-sm font-normal text-slate-400">(optional)</span>
             </h2>
             <p className="mt-1 text-sm text-slate-400">
-              Add any keys you have. Each one switches its part of the plan from dummy data to real results.
+              Add <strong className="text-slate-200">all 4 keys</strong> to get real results. With fewer, the whole plan uses dummy data.
             </p>
+            <div className="mt-3 flex items-center gap-2" aria-label={`${filled} of 4 keys added`}>
+              {KEY_FIELDS.map((f) => (
+                <span key={f.id} className={`h-1.5 flex-1 rounded-full transition ${keys[f.id].trim() ? "bg-emerald-400" : "bg-white/10"}`} />
+              ))}
+              <span className={`ml-1 text-xs font-medium ${filled === 4 ? "text-emerald-300" : "text-slate-400"}`}>{filled} of 4</span>
+            </div>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white" aria-label="Close">
             <X className="h-5 w-5" />
@@ -136,7 +142,8 @@ export default function ApiKeysDialog({
               <Trash2 className="h-4 w-4" /> Clear all
             </button>
             <button type="submit" className="btn-primary px-5 py-2.5 text-sm">
-              <Check className="h-4 w-4" /> Save {filled ? `${filled} key${filled > 1 ? "s" : ""}` : "(use dummy data)"}
+              <Check className="h-4 w-4" />{" "}
+              {filled === 4 ? "Save: use real data" : filled === 0 ? "Save (use dummy data)" : `Save ${filled} of 4 (dummy data until all 4)`}
             </button>
           </div>
         </form>

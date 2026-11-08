@@ -145,6 +145,8 @@ export interface Health {
   ok: boolean;
   /** What a request without user keys gets from this server. */
   modes?: ServiceModes;
+  /** Which keys the server already holds (booleans only). Users only need to add the rest. */
+  serverKeys?: Record<ServiceId, boolean>;
 }
 
 export async function checkHealth(): Promise<Health> {
@@ -152,7 +154,7 @@ export async function checkHealth(): Promise<Health> {
     const res = await fetch(`${API_URL}/api/health`, { cache: "no-store" });
     if (!res.ok) return { ok: false };
     const j = await res.json().catch(() => ({}));
-    return { ok: true, modes: j?.modes };
+    return { ok: true, modes: j?.modes, serverKeys: j?.server_keys };
   } catch {
     return { ok: false };
   }

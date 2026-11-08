@@ -32,6 +32,7 @@ import {
   streamPlan,
   type ApiKeys,
   type InterruptPayload,
+  type ServiceId,
   type ServiceModes,
   type NodeId,
   type StreamEvent,
@@ -65,8 +66,8 @@ export default function Home() {
   const [apiKeys, setApiKeys] = useState<ApiKeys>(EMPTY_KEYS);
   const [rememberKeys, setRememberKeys] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
-  /** What the server provides without user keys (from /api/health) */
-  const [serverModes, setServerModes] = useState<ServiceModes | null>(null);
+  /** Which keys the server already holds (from /api/health); null until the first check */
+  const [serverKeys, setServerKeys] = useState<Record<ServiceId, boolean> | null>(null);
   /** What the current plan actually used (from the stream) */
   const [runModes, setRunModes] = useState<ServiceModes | null>(null);
 
@@ -86,7 +87,7 @@ export default function Home() {
       checkHealth().then((h) => {
         if (!alive) return;
         setOnline(h.ok);
-        if (h.modes) setServerModes(h.modes);
+        if (h.ok) setServerKeys(h.serverKeys ?? { llm: false, flights: false, hotels: false, weather: false });
       });
     ping();
     const t = setInterval(ping, 15000);
@@ -207,13 +208,17 @@ export default function Home() {
     : [];
   const busy = phase === "planning" || phase === "finalizing";
 
-  /** What the next plan will use: a user key makes a service live, otherwise the server decides. */
+  /** Services with no key from the user or the server. */
+  const missingKeys = useMemo<ServiceId[]>(
+    () => KEY_FIELDS.filter((f) => !apiKeys[f.id].trim() && !serverKeys?.[f.service]).map((f) => f.service),
+    [serverKeys, apiKeys],
+  );
+  /** What the next plan will use. All-or-nothing: live only when all four keys are available. */
   const previewModes = useMemo<ServiceModes | null>(() => {
-    if (!serverModes && !hasAnyKey(apiKeys)) return null;
-    const m = { ...(serverModes || { llm: "mock", flights: "mock", hotels: "mock", weather: "mock" }) } as ServiceModes;
-    for (const f of KEY_FIELDS) if (apiKeys[f.id].trim()) m[f.service] = "live";
-    return m;
-  }, [serverModes, apiKeys]);
+    if (!serverKeys && !hasAnyKey(apiKeys)) return null;
+    const mode = missingKeys.length === 0 ? "live" : "mock";
+    return { llm: mode, flights: mode, hotels: mode, weather: mode };
+  }, [serverKeys, apiKeys, missingKeys]);
   const keyCount = KEY_FIELDS.filter((f) => apiKeys[f.id].trim()).length;
   const openKeys = useCallback(() => setKeysOpen(true), []);
   const closeKeys = useCallback(() => setKeysOpen(false), []);
@@ -257,13 +262,17 @@ export default function Home() {
             <button
               onClick={openKeys}
               className={`chip transition hover:border-fuchsia-400/40 hover:text-white ${
-                keyCount ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200" : ""
+                keyCount === 4
+                  ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                  : keyCount
+                  ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                  : ""
               }`}
-              title="Add your own API keys (optional)"
+              title={keyCount === 4 ? "All 4 API keys added" : "Add your own API keys (all 4 needed for real results)"}
             >
               <KeyRound className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">API keys</span>
-              {keyCount > 0 && <span className="rounded-full bg-emerald-400/20 px-1.5 text-[10px] font-semibold">{keyCount}</span>}
+              {keyCount > 0 && <span className="rounded-full bg-white/10 px-1.5 text-[10px] font-semibold">{keyCount}/4</span>}
             </button>
             <a
               href={GITHUB_URL}
@@ -306,7 +315,7 @@ export default function Home() {
           </div>
 
           <div className="mt-6 w-full">
-            <DataModeBanner modes={previewModes} onAddKeys={openKeys} context="preview" />
+            <DataModeBanner modes={previewModes} missing={missingKeys} onAddKeys={openKeys} context="preview" />
           </div>
 
           <div
@@ -350,7 +359,7 @@ export default function Home() {
             </button>
           </section>
 
-          <DataModeBanner modes={runModes} onAddKeys={openKeys} context="result" />
+          <DataModeBanner modes={runModes} missing={missingKeys} onAddKeys={openKeys} context="result" />
 
           <AgentPipeline statuses={statuses} />
 
