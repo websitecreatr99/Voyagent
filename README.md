@@ -273,9 +273,10 @@ Without `DATABASE_URL`, threads are kept in memory and are lost when the server 
 
 ## API keys, dummy data and mock mode
 
-Each service runs live only when it has a key; otherwise it returns **dummy data**:
+The planner needs **all four keys** to run live. It's all-or-nothing: if any key is missing,
+**every** service returns dummy data, so a plan never mixes real and sample results.
 
-| Service | Key | Without a key |
+| Service | Key | Dummy data used |
 |---|---|---|
 | LLM (supervisor, budget, itinerary, final plan) | Groq | Canned text |
 | Flights | AviationStack | Canned airport/airline data |
@@ -287,12 +288,14 @@ Keys come from two places:
 1. **The request.** Users can paste their own keys in the UI (**API keys** button). They are sent
    as `api_keys` in `POST /api/plan[/stream]` and `/approve[/stream]`, used only for that request,
    and never written to graph state, checkpoints or logs. They are also scrubbed from error messages.
-2. **The server's environment** (`GROQ_API_KEY`, ...). These are used when the user supplies none,
-   unless `MOCK_MODE=true`. In that case the server ignores its own keys and only user-supplied keys go live.
+2. **The server's environment** (`GROQ_API_KEY`, ...). These fill in any keys the user didn't supply,
+   unless `MOCK_MODE=true`. In that case the server ignores its own keys and only user-supplied keys count.
 
-`GET /api/health` returns `modes`, which says what a request without user keys gets. Every plan
-response and the stream's `start` event also include `modes` (`live` or `mock` per service), so
-the UI can label dummy data.
+User keys and server keys are combined. The plan goes live only if the combined set has all four.
+
+`GET /api/health` returns `modes` (what a request without user keys gets) and `server_keys`
+(which keys the server holds, as booleans only, never the values). Every plan response and the
+stream's `start` event also include `modes` (`live` or `mock` per service), so the UI can label dummy data.
 
 ## Deploy to Render
 
@@ -514,8 +517,8 @@ In mock mode, every response ends with *"Mock mode: generated without calling an
 
 ## 9. Switch to real AI responses
 
-**Option A: per user, no server change.** Click **API keys** in the app header, paste your keys
-(any subset), and plan a trip. Services without a key keep returning dummy data, and the UI labels them.
+**Option A: per user, no server change.** Click **API keys** in the app header, paste **all four**
+keys, and plan a trip. With fewer than four, the whole plan uses dummy data, and the UI shows which keys are missing.
 
 **Option B: server-wide keys,** used for everyone who doesn't bring their own. In **Render → Environment**:
 

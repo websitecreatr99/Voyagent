@@ -4,7 +4,8 @@ Keys come from the request (user-supplied in the UI) and fall back to the server
 environment unless MOCK_MODE is on. They live only in a ContextVar for the duration
 of a request: they are never written to graph state, checkpoints or logs.
 
-Each service runs live only when its key is available; otherwise it returns dummy data.
+All-or-nothing: the plan runs live only when ALL four keys are available (user-supplied
+and server keys combined). If any key is missing, every service returns dummy data.
 """
 
 import os
@@ -50,14 +51,28 @@ def server_keys() -> ApiKeys:
     )
 
 
+def is_complete(keys: ApiKeys) -> bool:
+    return all(getattr(keys, f.name) for f in fields(ApiKeys))
+
+
 def resolve(user: dict | None) -> ApiKeys:
-    """User-supplied keys win; missing ones fall back to the server's keys."""
+    """Combine user-supplied keys with the server's keys (user keys win).
+
+    All-or-nothing: unless all four keys are available, return no keys at all,
+    so every service uses dummy data instead of mixing live and dummy results.
+    """
     user = user or {}
     base = server_keys()
-    return ApiKeys(**{
+    merged = ApiKeys(**{
         f.name: (str(user.get(f.name) or "").strip() or getattr(base, f.name))
         for f in fields(ApiKeys)
     })
+    return merged if is_complete(merged) else ApiKeys()
+
+
+def availability(keys: ApiKeys) -> dict[str, bool]:
+    """Which services have a key (before the all-or-nothing rule). Booleans only, never values."""
+    return {svc: bool(getattr(keys, k)) for svc, k in SERVICE_KEYS.items()}
 
 
 def modes(keys: ApiKeys) -> dict[str, str]:

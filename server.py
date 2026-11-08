@@ -51,7 +51,7 @@ origins = [
     o.strip()
     for o in os.getenv(
         "FRONTEND_ORIGINS",
-        "http://localhost:3000,http://127.0.0.1:3000,https://voyagent-lime.vercel.app",
+        "http://localhost:3000,http://127.0.0.1:3000,https://voyagent-flax.vercel.app",
     ).split(",")
     if o.strip()
 ]
@@ -226,8 +226,15 @@ _SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 
 @api.get("/api/health")
 def health():
-    """`modes` shows what a request WITHOUT user keys gets (server keys, or dummy data)."""
-    return {"status": "ok", "mock_mode": MOCK_MODE, "modes": keys.modes(keys.server_keys())}
+    """`modes`: what a request WITHOUT user keys gets. `server_keys`: which keys the server
+    holds (booleans), so the UI can tell users which keys they still need to add."""
+    server = keys.server_keys()
+    return {
+        "status": "ok",
+        "mock_mode": MOCK_MODE,
+        "modes": keys.modes(server if keys.is_complete(server) else keys.ApiKeys()),
+        "server_keys": keys.availability(server),
+    }
 
 
 @api.get("/api/agents")
