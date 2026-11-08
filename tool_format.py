@@ -11,6 +11,7 @@ from typing import Any
 WARNING = "⚠️"
 
 SERVICE_NAMES = {
+    "groq": "Groq",
     "openweather": "OpenWeather",
     "tavily": "Tavily",
     "aviationstack": "AviationStack",
@@ -49,14 +50,14 @@ def is_warning(text: str) -> bool:
     return isinstance(text, str) and text.lstrip().startswith(WARNING)
 
 
-def error_message(service: str, status: Any = None, detail: str = "") -> str:
-    """A short, actionable explanation of a provider error."""
+def _classify(service: str, status: Any, detail: str) -> tuple[str, str, str]:
+    """(headline, hint, '(code: detail)') for a provider error."""
     name = SERVICE_NAMES.get(service, service)
     code = str(status or "")
     detail = (detail or "").strip().rstrip(".")
     if code in {"401", "403"} or re.search(r"invalid[ _]?(api[ _]?)?(access[ _]?)?key|unauthori[sz]ed|not supplied a valid", detail, re.I):
-        head = f"{name} rejected your API key"
-        hint = "Check the key under **API keys**, or clear it to use dummy data."
+        head = f"{name} rejected the API key"
+        hint = "Check the key, or clear it to use dummy data."
     elif code == "429" or re.search(r"rate limit|usage limit|quota", detail, re.I):
         head = f"{name} usage limit reached"
         hint = "Your plan's quota or rate limit was hit. Try again later or use another key."
@@ -67,29 +68,42 @@ def error_message(service: str, status: Any = None, detail: str = "") -> str:
         head = f"{name} returned an error"
         hint = "Live data for this part of the plan is unavailable right now."
     extra = f" ({code + ': ' if code else ''}{detail[:160]})" if detail else (f" ({code})" if code else "")
+    return head, hint, extra
+
+
+def error_message(service: str, status: Any = None, detail: str = "") -> str:
+    """A short, actionable explanation of a provider error (Markdown, for a result card)."""
+    head, hint, extra = _classify(service, status, detail)
     return f"{WARNING} **{head}**{extra}. {hint}"
 
 
-def detect_error(service: str, data: Any) -> str | None:
-    """Return an error message if a parsed provider response is an error, else None."""
+def fallback_message(service: str, status: Any = None, detail: str = "") -> str:
+    """Plain one-liner explaining why a run switched to dummy data,
+    e.g. 'Groq rejected the API key (401: Invalid API Key)'."""
+    head, _hint, extra = _classify(service, status, detail)
+    return head + extra
+
+
+def detect_error(service: str, data: Any) -> tuple[Any, str] | None:
+    """(status, detail) if a parsed provider response is an error, else None."""
     if not isinstance(data, dict):
         return None
     if service == "openweather":
         cod = data.get("cod")
         if cod is not None and str(cod) != "200":
-            return error_message(service, cod, str(data.get("message", "")))
+            return cod, str(data.get("message", ""))
     if service == "tavily":
         if data.get("error") or (data.get("status") and str(data.get("status")) != "200"):
             detail = data.get("detail")
             if isinstance(detail, dict):
                 detail = detail.get("error") or json.dumps(detail)
-            return error_message(service, data.get("status"), str(detail or data.get("error") or ""))
+            return data.get("status"), str(detail or data.get("error") or "")
     if service == "aviationstack":
         if data.get("ok") is False or "error" in data:
             err = data.get("error")
             if isinstance(err, dict):
                 err = err.get("message") or err.get("info") or json.dumps(err)
-            return error_message(service, None, str(err or ""))
+            return None, str(err or "")
     return None
 
 
@@ -165,7 +179,7 @@ def normalize(service: str, tool: str, result: Any) -> str:
     data = parse_json(text)
     err = detect_error(service, data)
     if err:
-        return err
+        return error_message(service, *err)
     if tool == "get_current_weather" and isinstance(data, dict):
         return format_current_weather(data)
     if tool == "get_forecast" and isinstance(data, dict):
@@ -173,3 +187,8 @@ def normalize(service: str, tool: str, result: Any) -> str:
     if tool == "tavily_search":
         return format_search_results(data, text)
     return text
+
+
+def provider_error(service: str, result: Any) -> tuple[Any, str] | None:
+    """(status, detail) if a raw MCP tool result is a provider error, else None."""
+    return detect_error(service, parse_json(to_text(result)))

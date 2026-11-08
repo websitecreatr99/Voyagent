@@ -61,8 +61,8 @@ def fake_llm_text(system: str, prompt: str) -> str:
         })
 
     if "route work" in s:
-        wants_weather = bool(re.search(r"weather|season|pack|monsoon|rain|snow|december|june|winter|summer", req, re.I))
-        agents = ["flight_agent", "hotel_agent"] + (["weather_agent"] if wants_weather else []) + ["budget_agent", "itinerary_agent"]
+        # Dummy mode always runs every specialist, so the whole 8-agent pipeline is exercised.
+        agents = ["flight_agent", "hotel_agent", "weather_agent", "budget_agent", "itinerary_agent"]
         budget = re.search(r"(?:under|within|budget of)\s+([^,.;]+)", req, re.I)
         return json.dumps({
             "selected_agents": agents,
@@ -76,8 +76,8 @@ def fake_llm_text(system: str, prompt: str) -> str:
             },
             "reasoning": (
                 f"This is a {days}-day trip to {dest}. Flights and stays are core to the plan, "
-                + ("weather matters for the travel dates, " if wants_weather else "")
-                + "and a budget check keeps the plan realistic before the itinerary is drafted."
+                "weather shapes what to pack and when to sightsee, "
+                "and a budget check keeps the plan realistic before the itinerary is drafted."
             ),
         })
 

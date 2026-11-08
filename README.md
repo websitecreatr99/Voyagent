@@ -293,6 +293,13 @@ Keys come from two places:
 
 User keys and server keys are combined. The plan goes live only if the combined set has all four.
 
+**Invalid keys never stop a plan.** If a live call fails (rejected key, rate limit, network error),
+the run switches to dummy data from that point and still completes through all 8 agents. The stream
+sends a `fallback` event (`{"service", "message"}`, e.g. *"Groq rejected the API key (401: Invalid API Key)"*),
+and the rest of that plan, including the final step after approval, stays on dummy data. Each `node`
+event carries `dummy: true|false`, and responses include `fallback` and `dummy_nodes`, so the UI labels
+exactly which agents used dummy data. In dummy mode, the supervisor runs every specialist agent.
+
 `GET /api/health` returns `modes` (what a request without user keys gets) and `server_keys`
 (which keys the server holds, as booleans only, never the values). Every plan response and the
 stream's `start` event also include `modes` (`live` or `mock` per service), so the UI can label dummy data.

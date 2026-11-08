@@ -80,6 +80,53 @@ def modes(keys: ApiKeys) -> dict[str, str]:
     return {svc: ("live" if getattr(keys, k) else "mock") for svc, k in SERVICE_KEYS.items()}
 
 
+class RunState:
+    """Mutable per-run state, shared by every agent of one request (same object in all copied contexts).
+
+    - fallback: set when a live call fails (rejected key, rate limit, network). From then on
+      every service returns dummy data so the plan still completes through all agents.
+    - used_dummy: whether the agent currently running used any dummy data (read and reset
+      by the server after each agent, so each result can be labelled accurately).
+    """
+
+    def __init__(self):
+        self.fallback: dict | None = None
+        self.used_dummy = False
+
+
+_run: ContextVar["RunState | None"] = ContextVar("run_state", default=None)
+
+
+def start_run() -> RunState:
+    state = RunState()
+    _run.set(state)
+    return state
+
+
+def run_state() -> RunState:
+    state = _run.get()
+    if state is None:  # e.g. a direct tool call outside a request
+        state = start_run()
+    return state
+
+
+def is_live(field: str) -> bool:
+    """True if this run should call the real service for this key (key present and no fallback yet)."""
+    return bool(getattr(current(), field)) and run_state().fallback is None
+
+
+def use_dummy() -> None:
+    run_state().used_dummy = True
+
+
+def trigger_fallback(service: str, message: str) -> None:
+    """Switch the rest of this run to dummy data after a live failure (first failure wins)."""
+    state = run_state()
+    if state.fallback is None:
+        state.fallback = {"service": service, "message": message}
+    state.used_dummy = True
+
+
 def set_current(keys: ApiKeys):
     return _current.set(keys)
 

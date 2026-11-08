@@ -77,12 +77,15 @@ async def _get_tools(service: str, key: str) -> list:
     return _tools_cache[cache_key]
 
 
-async def call_tool(service: str, tool_name: str, args: dict | None = None) -> str:
-    """Call a live MCP tool and return readable Markdown.
+class ToolFailed(Exception):
+    def __init__(self, status, detail: str):
+        super().__init__(detail)
+        self.status = status
+        self.detail = detail
 
-    Provider errors (rejected key, rate limit, ...) come back as a short warning
-    message instead of raw JSON, and never stop the plan.
-    """
+
+async def call_tool(service: str, tool_name: str, args: dict | None = None) -> str:
+    """Call a live MCP tool and return readable Markdown. Raises ToolFailed on provider errors."""
     key = getattr(keys.current(), service)
     try:
         tools = await _get_tools(service, key)
@@ -91,14 +94,32 @@ async def call_tool(service: str, tool_name: str, args: dict | None = None) -> s
             raise ValueError(f"Tool '{tool_name}' not found on {service} MCP server")
         raw = await tool.ainvoke(args or {})
     except Exception as e:
-        msg = keys.redact(str(e))
-        print(f"[mcp] {service}.{tool_name} failed: {type(e).__name__}: {msg}")
-        return tool_format.error_message(service, None, msg)
+        raise ToolFailed(None, keys.redact(str(e))) from None
+    err = tool_format.provider_error(service, raw)
+    if err:
+        raise ToolFailed(err[0], keys.redact(err[1]))
     return keys.redact(tool_format.normalize(service, tool_name, raw))
 
 
-def _has_key(service: str) -> bool:
-    return bool(getattr(keys.current(), service))
+# Key field -> service name used in the API's `modes`
+_SERVICE = {"tavily": "hotels", "aviationstack": "flights", "openweather": "weather"}
+
+
+async def _tool(key_field: str, tool_name: str, args: dict, dummy):
+    """Live call when this run has a working key; otherwise (or on any failure) dummy data.
+
+    A live failure (rejected key, rate limit, network) switches the rest of the run to
+    dummy data, so the plan still completes through all agents.
+    """
+    if keys.is_live(key_field):
+        try:
+            return await call_tool(key_field, tool_name, args)
+        except ToolFailed as e:
+            msg = tool_format.fallback_message(key_field, e.status, e.detail)
+            print(f"[mcp] {key_field}.{tool_name} failed, switching to dummy data: {msg}")
+            keys.trigger_fallback(_SERVICE[key_field], msg)
+    keys.use_dummy()
+    return await dummy()
 
 
 # ------------------------
@@ -107,30 +128,20 @@ def _has_key(service: str) -> bool:
 
 
 async def tavily_search(query: str):
-    if not _has_key("tavily"):
-        return await mock.fake_tavily_search(query)
-    return await call_tool("tavily", "tavily_search", {"query": query})
+    return await _tool("tavily", "tavily_search", {"query": query}, lambda: mock.fake_tavily_search(query))
 
 
 async def list_airports(search: str = "", limit: int = 10):
-    if not _has_key("aviationstack"):
-        return await mock.fake_tool(search)
-    return await call_tool("aviationstack", "list_airports", {"search": search, "limit": limit, "offset": 0})
+    return await _tool("aviationstack", "list_airports", {"search": search, "limit": limit, "offset": 0}, lambda: mock.fake_tool(search))
 
 
 async def list_airlines(search: str = "", limit: int = 10):
-    if not _has_key("aviationstack"):
-        return await mock.fake_tool(search)
-    return await call_tool("aviationstack", "list_airlines", {"search": search, "limit": limit, "offset": 0})
+    return await _tool("aviationstack", "list_airlines", {"search": search, "limit": limit, "offset": 0}, lambda: mock.fake_tool(search))
 
 
 async def current_weather(city: str):
-    if not _has_key("openweather"):
-        return await mock.fake_weather(city)
-    return await call_tool("openweather", "get_current_weather", {"city": city})
+    return await _tool("openweather", "get_current_weather", {"city": city}, lambda: mock.fake_weather(city))
 
 
 async def forecast(city: str):
-    if not _has_key("openweather"):
-        return await mock.fake_forecast(city)
-    return await call_tool("openweather", "get_forecast", {"city": city})
+    return await _tool("openweather", "get_forecast", {"city": city}, lambda: mock.fake_forecast(city))

@@ -103,6 +103,10 @@ class PlanResponse(BaseModel):
     interrupt: dict[str, Any] | None = None
     # Per service: "live" (real API) or "mock" (dummy data). Keys: llm, flights, hotels, weather.
     modes: dict[str, str] | None = None
+    # Set when a live call failed and the run continued with dummy data: {"service", "message"}.
+    fallback: dict[str, str] | None = None
+    # Per agent: True if that agent's output is (at least partly) dummy data.
+    dummy_nodes: dict[str, bool] | None = None
 
 
 # ---------- Helpers ----------
@@ -131,8 +135,10 @@ def _initial_input(req: PlanRequest) -> dict[str, Any]:
     }
 
 
-# thread_id -> service modes of its latest run (no secrets; just "live"/"mock").
+# Per-thread run info (no secrets): service modes, fallback reason, which agents used dummy data.
 _thread_modes: dict[str, dict[str, str]] = {}
+_thread_fallback: dict[str, dict[str, str]] = {}
+_thread_dummy: dict[str, dict[str, bool]] = {}
 
 
 def _keys_for(api_keys: "ApiKeysIn | None") -> keys.ApiKeys:
@@ -165,18 +171,17 @@ def _snapshot(thread_id: str) -> PlanResponse:
         state=_public(values),
         interrupt=interrupt_value,
         modes=_thread_modes.get(thread_id),
+        fallback=_thread_fallback.get(thread_id),
+        dummy_nodes=_thread_dummy.get(thread_id),
     )
 
 
 def _run_blocking(graph_input: Any, thread_id: str, api_keys: keys.ApiKeys) -> PlanResponse:
-    _thread_modes[thread_id] = keys.modes(api_keys)
-    token = keys.set_current(api_keys)
-    try:
-        travel_graph.invoke(graph_input, config=_config(thread_id))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=keys.redact(str(exc), api_keys)) from None
-    finally:
-        keys.reset_current(token)
+    """Same run as the stream (incl. dummy-data fallback), returning only the final state."""
+    for frame in _stream_graph(graph_input, thread_id, api_keys):
+        if frame.startswith("event: error"):
+            message = json.loads(frame.split("data: ", 1)[1])["message"]
+            raise HTTPException(status_code=500, detail=message)
     return _snapshot(thread_id)
 
 
@@ -198,6 +203,14 @@ def _stream_graph(graph_input: Any, thread_id: str, api_keys: keys.ApiKeys) -> I
 
     ctx = contextvars.copy_context()
     ctx.run(keys.set_current, api_keys)
+    run = ctx.run(keys.start_run)
+    dummy = _thread_dummy.setdefault(thread_id, {})
+    announced = False
+    if thread_id in _thread_fallback:
+        # This plan already fell back to dummy data (e.g. during planning): keep the rest of it
+        # (approval → final plan) on dummy data too, so one plan never mixes live and dummy results.
+        run.fallback = _thread_fallback[thread_id]
+        announced = True
     try:
         chunks = ctx.run(
             lambda: iter(travel_graph.stream(graph_input, config=_config(thread_id), stream_mode="updates"))
@@ -212,7 +225,15 @@ def _stream_graph(graph_input: Any, thread_id: str, api_keys: keys.ApiKeys) -> I
                     payload = update[0].value if update else {}
                     yield _sse("interrupt", {"node": "human_approval", "data": payload})
                 else:
-                    yield _sse("node", {"node": node, "data": _public(update or {})})
+                    # Did this agent use dummy data? (read & reset per agent; agents run one at a time)
+                    dummy[node] = run.used_dummy
+                    run.used_dummy = False
+                    yield _sse("node", {"node": node, "data": _public(update or {}), "dummy": dummy[node]})
+            if run.fallback and not announced:
+                # A live call failed: the run carries on with dummy data. Tell the UI once.
+                announced = True
+                _thread_fallback[thread_id] = run.fallback
+                yield _sse("fallback", run.fallback)
         yield _sse("done", _snapshot(thread_id).model_dump())
     except Exception as exc:  # surface errors to the UI instead of dropping the stream
         yield _sse("error", {"message": keys.redact(str(exc), api_keys)})

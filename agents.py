@@ -10,21 +10,32 @@ import mock
 from config import get_llm
 from mcp_client import current_weather, forecast, list_airlines, list_airports, tavily_search
 from state import TravelState
-from tool_format import is_warning
+from tool_format import fallback_message, is_warning
 
 
 def _llm_text(system: str, prompt: str) -> str:
-    groq_key = keys.current().groq
-    if not groq_key:
-        # No Groq key for this request: return dummy data.
+    if not keys.is_live("groq"):
+        # No usable Groq key for this run (missing, or an earlier live call failed): dummy data.
+        keys.use_dummy()
         return mock.fake_llm_text(system, prompt)
-    response = get_llm(groq_key).invoke(
-        [
-            SystemMessage(content=system),
-            HumanMessage(content=prompt),
-        ]
-    )
-    return response.content
+    try:
+        response = get_llm(keys.current().groq).invoke(
+            [
+                SystemMessage(content=system),
+                HumanMessage(content=prompt),
+            ]
+        )
+        return response.content
+    except Exception as exc:
+        # Rejected key, rate limit, network...: don't stop the plan; continue with dummy data.
+        status = getattr(exc, "status_code", None)
+        body = getattr(exc, "body", None)
+        err = body.get("error") if isinstance(body, dict) else None
+        detail = keys.redact(str(err.get("message") if isinstance(err, dict) else (err or exc)))
+        msg = fallback_message("groq", status, detail)
+        print(f"[llm] Groq call failed, switching to dummy data: {msg}")
+        keys.trigger_fallback("llm", msg)
+        return mock.fake_llm_text(system, prompt)
 
 def _json_from_llm(text: str) -> dict:
     print("\n========== RAW LLM RESPONSE ==========")
