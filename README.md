@@ -90,8 +90,8 @@ Browser ──► Vercel (Next.js UI) ──HTTPS + Server-Sent Events──► 
 The backend and frontend live on separate branches, so clone each one into its own folder:
 
 ```bash
-git clone -b backend  https://github.com/kishannextq/hackathon2.git voyagent-backend
-git clone -b frontend https://github.com/kishannextq/hackathon2.git voyagent-frontend
+git clone -b backend  https://github.com/websitecreatr99/Voyagent.git voyagent-backend
+git clone -b frontend https://github.com/websitecreatr99/Voyagent.git voyagent-frontend
 ```
 
 > The repository is private. Ask the owner for access, or use your own copy (see step 4).

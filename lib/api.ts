@@ -1,5 +1,5 @@
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
-export const GITHUB_URL = process.env.NEXT_PUBLIC_GITHUB_URL || "https://github.com/kishannextq/hackathon2";
+export const GITHUB_URL = process.env.NEXT_PUBLIC_GITHUB_URL || "https://github.com/websitecreatr99/Voyagent";
 
 /** Optional user-supplied keys. Any service without a key returns dummy data. */
 export interface ApiKeys {
