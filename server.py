@@ -51,7 +51,7 @@ origins = [
     o.strip()
     for o in os.getenv(
         "FRONTEND_ORIGINS",
-        "http://localhost:3000,http://127.0.0.1:3000,https://voyagent-flax.vercel.app",
+        "http://localhost:3000,http://127.0.0.1:3000,https://voyagent-lime.vercel.app",
     ).split(",")
     if o.strip()
 ]
